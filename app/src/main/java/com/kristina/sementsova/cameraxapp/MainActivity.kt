@@ -70,8 +70,8 @@ class MainActivity : AppCompatActivity() {
 
         // Create output options object which contains file + metadata
         val outputOptions = ImageCapture.OutputFileOptions.Builder(
-                contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues
-            ).build()
+            contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues
+        ).build()
 
         // Set up image capture listener, which is triggered after photo has
         // been taken
@@ -103,7 +103,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // create and start a new recording session
+        // Сreate and start a new recording session
         val name = SimpleDateFormat(FILENAME_FORMAT, Locale.US).format(System.currentTimeMillis())
         val contentValues = ContentValues().apply {
             put(MediaStore.MediaColumns.DISPLAY_NAME, name)
@@ -114,44 +114,44 @@ class MainActivity : AppCompatActivity() {
         }
 
         val mediaStoreOutputOptions = MediaStoreOutputOptions.Builder(
-                contentResolver,
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-            ).setContentValues(contentValues).build()
+            contentResolver,
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        ).setContentValues(contentValues).build()
         recording = videoCapture.output.prepareRecording(this, mediaStoreOutputOptions).apply {
-                if (PermissionChecker.checkSelfPermission(
-                        this@MainActivity, android.Manifest.permission.RECORD_AUDIO
-                    ) == PermissionChecker.PERMISSION_GRANTED
-                ) {
-                    withAudioEnabled()
-                }
-            }.start(ContextCompat.getMainExecutor(this)) { recordEvent ->
-                when (recordEvent) {
-                    is VideoRecordEvent.Start -> {
-                        viewBinding.videoCaptureButton.apply {
-                            text = getString(R.string.stop_capture)
-                            isEnabled = true
-                        }
+            if (PermissionChecker.checkSelfPermission(
+                    this@MainActivity, android.Manifest.permission.RECORD_AUDIO
+                ) == PermissionChecker.PERMISSION_GRANTED
+            ) {
+                withAudioEnabled()
+            }
+        }.start(ContextCompat.getMainExecutor(this)) { recordEvent ->
+            when (recordEvent) {
+                is VideoRecordEvent.Start -> {
+                    viewBinding.videoCaptureButton.apply {
+                        text = getString(R.string.stop_capture)
+                        isEnabled = true
                     }
-                    is VideoRecordEvent.Finalize -> {
-                        if (!recordEvent.hasError()) {
-                            val msg =
-                                "Video capture succeeded: " + "${recordEvent.outputResults.outputUri}"
-                            Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
-                            Log.d(TAG, msg)
-                        } else {
-                            recording?.close()
-                            recording = null
-                            Log.e(
-                                TAG, "Video capture ends with error: " + "${recordEvent.error}"
-                            )
-                        }
-                        viewBinding.videoCaptureButton.apply {
-                            text = getString(R.string.start_capture)
-                            isEnabled = true
-                        }
+                }
+                is VideoRecordEvent.Finalize -> {
+                    if (!recordEvent.hasError()) {
+                        val msg =
+                            "Video capture succeeded: " + "${recordEvent.outputResults.outputUri}"
+                        Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+                        Log.d(TAG, msg)
+                    } else {
+                        recording?.close()
+                        recording = null
+                        Log.e(
+                            TAG, "Video capture ends with error: " + "${recordEvent.error}"
+                        )
+                    }
+                    viewBinding.videoCaptureButton.apply {
+                        text = getString(R.string.start_capture)
+                        isEnabled = true
                     }
                 }
             }
+        }
     }
 
     private fun startCamera() {
@@ -170,11 +170,16 @@ class MainActivity : AppCompatActivity() {
 
             // Preview
             val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
-                }
+                it.setSurfaceProvider(viewBinding.viewFinder.surfaceProvider)
+            }
 
             val recorder =
-                Recorder.Builder().setQualitySelector(QualitySelector.from(Quality.HIGHEST)).build()
+                Recorder.Builder().setQualitySelector(
+                    QualitySelector.from(
+                        Quality.HIGHEST,
+                        FallbackStrategy.higherQualityOrLowerThan(Quality.SD)
+                    )
+                ).build()
             videoCapture = VideoCapture.withOutput(recorder)
 
             // ! When both Preview and Video Capture are required then Image capture OR Analysis is allowed
@@ -231,10 +236,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun analyze(image: ImageProxy) {
-
             val buffer = image.planes[0].buffer
             val data = buffer.toByteArray()
             val pixels = data.map { it.toInt() and 0xFF }
+
             val luma = pixels.average()
 
             listener(luma)
